@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Block Tower</title>
+  <p><a href="/scratch.html">My Passion Project</a></header></p>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #111;
+      color: white;
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      margin: 10px;
+    }
+    #ui {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background-color: #444;
+      color: white;
+    }
+    #gameCanvas {
+      background-color: #222;
+      border: 2px solid #555;
+    }
+    #message {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      display: none;
+    }
+    #confetti {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <h1>Block Tower</h1>
+  <div id="ui">
+    <button onclick="startGame()">Start</button>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div id="message"></div>
+  <div id="confetti"></div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const messageDiv = document.getElementById("message");
+    const confettiDiv = document.getElementById("confetti");
+
+    const blockHeight = 20;
+    const totalBlocksToWin = 28;
+
+    let stack = [];
+    let activeBlock;
+    let speed = 2;
+    let blockWidth = 200;
+    let isRunning = false;
+    let animationId;
+    let counter = 0;
+
+    function randomConfetti() {
+      for (let i = 0; i < 100; i++) {
+        const conf = document.createElement("div");
+        conf.style.position = "absolute";
+        conf.style.width = "8px";
+        conf.style.height = "8px";
+        conf.style.background = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        conf.style.left = Math.random() * window.innerWidth + "px";
+        conf.style.top = Math.random() * window.innerHeight + "px";
+        conf.style.opacity = "0.8";
+        conf.style.borderRadius = "50%";
+        conf.style.animation = `fall ${2 + Math.random() * 2}s linear infinite`;
+        confettiDiv.appendChild(conf);
+      }
+    }
+
+    function drawBlock(x, y, width, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, width, blockHeight);
+    }
+
+    function resetGame() {
+      stack = [];
+      activeBlock = null;
+      blockWidth = 200;
+      speed = 2;
+      counter = 0;
+      messageDiv.style.display = "none";
+      confettiDiv.innerHTML = "";
+      cancelAnimationFrame(animationId);
+      isRunning = false;
+    }
+
+    function restartGame() {
+      resetGame();
+      startGame();
+    }
+
+    function startGame() {
+      if (isRunning) return;
+      resetGame();
+      isRunning = true;
+
+      // Place the first base block
+      stack.push({
+        x: canvas.width / 2 - blockWidth / 2,
+        y: canvas.height - blockHeight,
+        width: blockWidth
+      });
+
+      placeNewBlock();
+      animate();
+    }
+
+    function placeNewBlock() {
+      let y = canvas.height - blockHeight * (stack.length + 1);
+      activeBlock = {
+        x: 0,
+        y: y,
+        width: blockWidth,
+        dir: 1
+      };
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw stacked blocks
+      stack.forEach(block => {
+        drawBlock(block.x, block.y, block.width, "#1ecbe1"); // blue-green
+      });
+
+      // Move and draw active block
+      if (activeBlock) {
+        activeBlock.x += speed * activeBlock.dir;
+        if (
+          activeBlock.x + activeBlock.width > canvas.width ||
+          activeBlock.x < 0
+        ) {
+          activeBlock.dir *= -1;
+        }
+        drawBlock(activeBlock.x, activeBlock.y, activeBlock.width, "#ff5733"); // red-orange
+      }
+
+      animationId = requestAnimationFrame(animate);
+    }
+
+    function endGame(win) {
+      isRunning = false;
+      cancelAnimationFrame(animationId);
+      if (win) {
+        messageDiv.textContent = "You Win!";
+        messageDiv.style.color = "#00ffcc";
+        messageDiv.style.display = "block";
+        randomConfetti();
+      } else {
+        messageDiv.textContent = "You Lose";
+        messageDiv.style.color = "#ff3333";
+        messageDiv.style.display = "block";
+      }
+    }
+
+    function placeBlock() {
+      if (!isRunning) return;
+
+      let topBlock = stack[stack.length - 1];
+      let overlap = Math.min(
+        activeBlock.x + activeBlock.width,
+        topBlock.x + topBlock.width
+      ) - Math.max(activeBlock.x, topBlock.x);
+
+      if (overlap <= 0) {
+        endGame(false);
+        return;
+      }
+
+      let newWidth = overlap;
+      let newX = Math.max(activeBlock.x, topBlock.x);
+      blockWidth = newWidth;
+      stack.push({ x: newX, y: activeBlock.y, width: newWidth });
+
+      counter++;
+      if (counter === totalBlocksToWin) {
+        endGame(true);
+        return;
+      }
+
+      // Slightly increase speed
+      speed += 0.2;
+      placeNewBlock();
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        placeBlock();
+      }
+    });
+
+    // Confetti animation
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes fall {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(100vh); }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>
+
